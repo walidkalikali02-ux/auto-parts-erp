@@ -1,9 +1,10 @@
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 export default async function PartDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const supabase = await createClient();
 
   const { data: part } = await supabase
     .from("parts")
@@ -13,16 +14,24 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
 
   if (!part) notFound();
 
-  const { data: compat } = await supabase
-    .from("part_compatibility")
-    .select("*, car_models(id, name, name_ar, body_type, year_start, year_end, car_brands(name, name_ar, logo_url))")
-    .eq("part_id", id)
-    .order("created_at");
+  const [compatRes, stockRes, crossRes, subsRes] = await Promise.all([
+    supabase.from("part_compatibility")
+      .select("*, car_models(id, name, name_ar, body_type, year_start, year_end, car_brands(name, name_ar, logo_url))")
+      .eq("part_id", id).order("created_at"),
+    supabase.from("inventory")
+      .select("quantity, quantity_reserved, location_code, warehouses(name, name_ar, city)")
+      .eq("part_id", id),
+    supabase.from("part_cross_references")
+      .select("*").eq("part_id", id).order("ref_type"),
+    supabase.from("part_substitutes")
+      .select("*, parts!part_substitutes_substitute_id_fkey(id, part_number, name_ar, price_retail, condition)")
+      .eq("part_id", id),
+  ]);
 
-  const { data: stock } = await supabase
-    .from("inventory")
-    .select("quantity, quantity_reserved, location_code, warehouses(name, name_ar, city)")
-    .eq("part_id", id);
+  const compat = compatRes.data;
+  const stock  = stockRes.data;
+  const crossRefs = crossRes.data ?? [];
+  const substitutes = subsRes.data ?? [];
 
   const totalQty = (stock ?? []).reduce((s, r) => s + r.quantity, 0);
 
@@ -163,6 +172,83 @@ export default async function PartDetailPage({ params }: { params: Promise<{ id:
               </table>
             )}
           </div>
+
+          {/* Cross-references */}
+          {crossRefs.length > 0 && (
+            <div className="card overflow-hidden">
+              <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--color-border-light)" }}>
+                <h2 className="font-arabic font-semibold" style={{ color: "var(--color-ink)" }}>
+                  الأرقام البديلة والمكافئة
+                  <span className="mr-2 text-sm font-normal" style={{ color: "var(--color-ink-muted)" }}>({crossRefs.length})</span>
+                </h2>
+              </div>
+              <table className="erp-table">
+                <thead><tr><th>الرقم البديل</th><th>الماركة</th><th>النوع</th></tr></thead>
+                <tbody>
+                  {crossRefs.map((r: any) => {
+                    const typeColor: Record<string, { bg: string; color: string; label: string }> = {
+                      oem:          { bg: "var(--color-blue-bg)",  color: "var(--color-blue)",      label: "OEM أصلي" },
+                      aftermarket:  { bg: "var(--color-green-bg)", color: "var(--color-green)",     label: "بديل" },
+                      superseded:   { bg: "var(--color-amber-bg)", color: "var(--color-amber)",     label: "رقم قديم" },
+                      generic:      { bg: "var(--color-surface-2)",color: "var(--color-ink-muted)", label: "عام" },
+                    };
+                    const tc = typeColor[r.ref_type] ?? typeColor.generic;
+                    return (
+                      <tr key={r.id}>
+                        <td className="font-mono font-semibold" style={{ color: "var(--color-gold)" }}>{r.ref_number}</td>
+                        <td className="text-sm" style={{ color: "var(--color-ink-2)" }}>{r.brand ?? "—"}</td>
+                        <td><span className="badge" style={{ background: tc.bg, color: tc.color }}>{tc.label}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Substitutes */}
+          {substitutes.length > 0 && (
+            <div className="card overflow-hidden">
+              <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--color-border-light)" }}>
+                <h2 className="font-arabic font-semibold" style={{ color: "var(--color-ink)" }}>
+                  قطع بديلة مقترحة
+                  <span className="mr-2 text-sm font-normal" style={{ color: "var(--color-ink-muted)" }}>عند النفاد</span>
+                </h2>
+              </div>
+              <div className="p-4 flex flex-col gap-3">
+                {substitutes.map((s: any) => {
+                  const qc: Record<string, { bg: string; color: string }> = {
+                    equivalent: { bg: "var(--color-blue-bg)",  color: "var(--color-blue)"  },
+                    upgrade:    { bg: "var(--color-green-bg)", color: "var(--color-green)" },
+                    downgrade:  { bg: "var(--color-amber-bg)", color: "var(--color-amber)" },
+                  };
+                  const c = qc[s.quality] ?? qc.equivalent;
+                  const sub = s.parts;
+                  return (
+                    <Link key={s.id} href={`/catalog/${sub?.id}`}
+                      className="flex items-center justify-between p-3 rounded-lg transition-all"
+                      style={{ background: "var(--color-surface)", textDecoration: "none" }}
+                      onMouseEnter={(e: any) => { e.currentTarget.style.borderColor = "var(--color-gold)"; }}
+                    >
+                      <div>
+                        <p className="font-arabic font-medium text-sm" style={{ color: "var(--color-ink)" }}>{sub?.name_ar}</p>
+                        <p className="font-mono text-xs mt-0.5" style={{ color: "var(--color-gold)" }}>{sub?.part_number}</p>
+                        {s.notes && <p className="font-arabic text-xs mt-0.5" style={{ color: "var(--color-ink-faint)" }}>{s.notes}</p>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="badge text-xs" style={{ background: c.bg, color: c.color }}>
+                          {s.quality === "equivalent" ? "مكافئ" : s.quality === "upgrade" ? "أفضل" : "أدنى"}
+                        </span>
+                        <span className="font-mono text-sm font-semibold" style={{ color: "var(--color-ink)", direction: "ltr" }}>
+                          {sub?.price_retail?.toLocaleString("ar-SA")} ر.س
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sidebar: pricing + stock */}

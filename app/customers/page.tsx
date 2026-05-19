@@ -114,10 +114,15 @@ export default function CustomersPage() {
                     <td><span className="font-mono text-sm font-semibold" style={{ color: c.balance < 0 ? "var(--color-red)" : "var(--color-ink)" }}>{Number(c.balance).toLocaleString("ar-SA")} ر.س</span></td>
                     <td className="font-mono text-sm" style={{ color: "var(--color-ink-muted)" }}>{Number(c.credit_limit).toLocaleString("ar-SA")} ر.س</td>
                     <td>
-                      <button className="btn btn-ghost text-xs" style={{ padding: "5px 10px" }} onClick={() => openEdit(c)}>
-                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                        <span className="font-arabic">تعديل</span>
-                      </button>
+                      <div className="flex gap-1">
+                        <Link href={`/customers/${c.id}`} className="btn btn-ghost text-xs" style={{ padding: "5px 10px" }}>
+                          <span className="font-arabic">ملف</span>
+                        </Link>
+                        <button className="btn btn-ghost text-xs" style={{ padding: "5px 10px" }} onClick={() => openEdit(c)}>
+                          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                          <span className="font-arabic">تعديل</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
