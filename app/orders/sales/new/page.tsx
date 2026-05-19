@@ -104,6 +104,20 @@ export default function NewSalesOrderPage() {
       return;
     }
 
+    // Credit limit check
+    if (paymentMethod === "credit" && customerId) {
+      const { data: cust } = await (await import("@/lib/supabase")).supabase
+        .from("customers").select("credit_limit, balance, name_ar").eq("id", customerId).single();
+      if (cust) {
+        const available = (cust.credit_limit ?? 0) - (cust.balance ?? 0);
+        if (total > available) {
+          setError(`رصيد الائتمان لـ "${cust.name_ar}" غير كافٍ. المتاح: ${available.toLocaleString("ar-SA")} ر.س`);
+          setSaving(false);
+          return;
+        }
+      }
+    }
+
     setSaving(true);
     setError("");
 
