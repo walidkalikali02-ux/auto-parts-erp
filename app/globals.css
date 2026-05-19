@@ -150,3 +150,12 @@ body {
   color: var(--color-ink-muted);
 }
 .btn-ghost:hover { background: var(--color-surface); color: var(--color-ink); }
+
+/* Print styles */
+@media print {
+  aside, nav, .btn, button, .no-print { display: none !important; }
+  body { background: #fff !important; }
+  main { margin: 0 !important; padding: 0 !important; }
+  #invoice-print { border: none !important; box-shadow: none !important; }
+  .card { border: 1px solid #ddd !important; }
+}

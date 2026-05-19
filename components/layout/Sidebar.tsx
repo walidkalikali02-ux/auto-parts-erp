@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
 const nav = [
   {
@@ -80,40 +82,44 @@ const nav = [
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({ user }: { user?: { email?: string } }) {
   const path = usePathname();
+  const router = useRouter();
 
   const isActive = (href: string) =>
     href === "/" ? path === "/" : path.startsWith(href);
 
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
+  const initials = user?.email ? user.email[0].toUpperCase() : "م";
+
   return (
     <aside
       className="flex flex-col w-[220px] min-h-full flex-shrink-0"
-      style={{
-        background: "#fff",
-        borderLeft: "1px solid var(--color-border)",
-        borderRight: "none",
-      }}
+      style={{ background: "#fff", borderLeft: "1px solid var(--color-border)" }}
     >
       {/* Logo */}
       <div
         className="flex flex-col items-center justify-center py-6 px-4 gap-1"
         style={{ borderBottom: "1px solid var(--color-border-light)" }}
       >
-        {/* Arabic geometric emblem */}
         <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
           <polygon points="18,2 34,10 34,26 18,34 2,26 2,10" fill="var(--color-gold-dim)" stroke="var(--color-gold)" strokeWidth="1.5" />
           <polygon points="18,8 28,13 28,23 18,28 8,23 8,13" fill="none" stroke="var(--color-gold)" strokeWidth="1" opacity="0.5" />
           <circle cx="18" cy="18" r="4" fill="var(--color-gold)" />
         </svg>
-        <span className="font-arabic text-base font-bold mt-1" style={{ color: "var(--color-ink)", letterSpacing: "0.02em" }}>
+        <span className="font-arabic text-base font-bold mt-1" style={{ color: "var(--color-ink)" }}>
           قطع الغيار
         </span>
         <span className="text-xs" style={{ color: "var(--color-ink-muted)" }}>نظام ERP</span>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-3 px-2 flex flex-col gap-0.5">
+      <nav className="flex-1 py-3 px-2 flex flex-col gap-0.5 overflow-y-auto">
         {nav.map((item) => {
           const active = isActive(item.href);
           return (
@@ -134,20 +140,39 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="px-4 py-4" style={{ borderTop: "1px solid var(--color-border-light)" }}>
-        <div className="flex items-center gap-2">
+      {/* User + Logout */}
+      <div className="px-3 py-3" style={{ borderTop: "1px solid var(--color-border-light)" }}>
+        <div className="flex items-center gap-2 mb-2">
           <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
             style={{ background: "var(--color-gold-dim)", color: "var(--color-gold)" }}
           >
-            م
+            {initials}
           </div>
-          <div>
-            <p className="text-xs font-arabic font-medium" style={{ color: "var(--color-ink-2)" }}>المدير</p>
-            <p className="text-xs" style={{ color: "var(--color-ink-muted)" }}>Admin</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium truncate" style={{ color: "var(--color-ink-2)", direction: "ltr" }}>
+              {user?.email ?? "admin"}
+            </p>
           </div>
         </div>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs transition-all"
+          style={{ color: "var(--color-ink-muted)" }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.background = "var(--color-red-bg)";
+            (e.currentTarget as HTMLElement).style.color = "var(--color-red)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.background = "transparent";
+            (e.currentTarget as HTMLElement).style.color = "var(--color-ink-muted)";
+          }}
+        >
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          <span className="font-arabic">تسجيل الخروج</span>
+        </button>
       </div>
     </aside>
   );
