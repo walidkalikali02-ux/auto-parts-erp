@@ -32,7 +32,7 @@ export default function InventoryPage() {
     if (filter === "low") q = q.gt("quantity", 0).lt("quantity", 10);
 
     const { data } = await q;
-    const filtered = (data ?? []).filter((item) => {
+    const filtered = (data ?? []).filter((item: any) => {
       if (!search) return true;
       const s = search.toLowerCase();
       return item.parts?.name_ar?.includes(search) ||
