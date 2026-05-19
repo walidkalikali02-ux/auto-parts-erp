@@ -91,8 +91,7 @@ export function Sidebar({ user }: { user?: { email?: string } }) {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    window.location.href = "/login";
   }
 
   const initials = user?.email ? user.email[0].toUpperCase() : "م";

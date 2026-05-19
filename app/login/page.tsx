@@ -19,8 +19,7 @@ export default function LoginPage() {
       setError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
       setLoading(false);
     } else {
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     }
   }
 
