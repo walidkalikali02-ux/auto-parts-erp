@@ -12,6 +12,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).single()
+    : { data: null };
+
   const isLoginPage = false; // middleware handles redirect
 
   return (
@@ -19,7 +23,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="h-full flex" style={{ background: "var(--color-surface)" }}>
         {user ? (
           <>
-            <Sidebar user={user} />
+            <Sidebar user={user} isSuperadmin={profile?.role === "superadmin"} />
             <main className="flex-1 flex flex-col min-h-full overflow-auto">
               {children}
             </main>
