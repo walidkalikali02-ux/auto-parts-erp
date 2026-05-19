@@ -75,7 +75,7 @@ export default function InventoryPage() {
       movement_type: "adjustment",
       quantity: adjType === "remove" ? -qty : qty,
       notes: adjReason || null,
-    }).catch(() => null);
+    }).then(() => null, () => null);
 
     setAdjustTarget(null);
     setAdjQty("");
