@@ -2,8 +2,8 @@ import { createClient } from "@/lib/supabase-server";
 
 const roleColor: Record<string, { bg: string; color: string }> = {
   superadmin: { bg: "rgba(181,137,42,0.15)", color: "#b5892a" },
-  admin:      { bg: "var(--color-blue-bg)",  color: "var(--color-blue)" },
-  manager:    { bg: "var(--color-green-bg)", color: "var(--color-green)" },
+  admin:      { bg: "var(--color-blue-bg)",   color: "var(--color-blue)" },
+  manager:    { bg: "var(--color-green-bg)",  color: "var(--color-green)" },
   staff:      { bg: "var(--color-surface-2)", color: "var(--color-ink-muted)" },
 };
 
@@ -15,14 +15,9 @@ export default async function UsersPage() {
     .select("*, tenants(name, name_ar)")
     .order("created_at", { ascending: false });
 
-  const { data: authUsers } = await supabase.auth.admin.listUsers();
+  const users = profiles ?? [];
 
-  const merged = (profiles ?? []).map((p) => {
-    const authUser = authUsers?.users?.find((u) => u.id === p.id);
-    return { ...p, email: authUser?.email ?? "—", last_sign_in: authUser?.last_sign_in_at };
-  });
-
-  const roleCount = merged.reduce((acc: any, u) => {
+  const roleCount = users.reduce((acc: any, u) => {
     acc[u.role] = (acc[u.role] ?? 0) + 1;
     return acc;
   }, {});
@@ -35,7 +30,7 @@ export default async function UsersPage() {
             إدارة المستخدمين
           </h1>
           <p className="text-sm mt-0.5" style={{ color: "var(--color-ink-muted)" }}>
-            {merged.length} مستخدم عبر المنصة
+            {users.length} مستخدم عبر المنصة
           </p>
         </div>
       </div>
@@ -47,7 +42,7 @@ export default async function UsersPage() {
           return (
             <div key={role} className="card p-4 flex items-center gap-3">
               <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm"
+                className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-lg"
                 style={{ background: c.bg, color: c.color }}
               >
                 {roleCount[role] ?? 0}
@@ -59,57 +54,63 @@ export default async function UsersPage() {
       </div>
 
       <div className="card overflow-hidden">
-        <table className="erp-table">
-          <thead>
-            <tr>
-              <th>الاسم</th>
-              <th>البريد الإلكتروني</th>
-              <th>الدور</th>
-              <th>المستأجر</th>
-              <th>آخر دخول</th>
-              <th>تاريخ الإنشاء</th>
-            </tr>
-          </thead>
-          <tbody>
-            {merged.map((u: any) => {
-              const c = roleColor[u.role] ?? roleColor.staff;
-              return (
-                <tr key={u.id}>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                        style={{ background: c.bg, color: c.color }}
-                      >
-                        {u.full_name_ar?.[0] ?? u.email?.[0]?.toUpperCase() ?? "؟"}
+        {users.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <span className="text-5xl opacity-20">👥</span>
+            <p className="font-arabic text-base" style={{ color: "var(--color-ink-muted)" }}>
+              لا يوجد مستخدمون
+            </p>
+          </div>
+        ) : (
+          <table className="erp-table">
+            <thead>
+              <tr>
+                <th>الاسم</th>
+                <th>الدور</th>
+                <th>المستأجر</th>
+                <th>تاريخ الإنشاء</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u: any) => {
+                const c = roleColor[u.role] ?? roleColor.staff;
+                return (
+                  <tr key={u.id}>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                          style={{ background: c.bg, color: c.color }}
+                        >
+                          {u.full_name_ar?.[0] ?? "؟"}
+                        </div>
+                        <div>
+                          <p className="font-arabic text-sm font-medium" style={{ color: "var(--color-ink)" }}>
+                            {u.full_name_ar ?? u.full_name ?? "—"}
+                          </p>
+                          <p className="font-mono text-xs mt-0.5" style={{ color: "var(--color-ink-faint)" }}>
+                            {u.id.slice(0, 8)}...
+                          </p>
+                        </div>
                       </div>
-                      <span className="font-arabic text-sm font-medium" style={{ color: "var(--color-ink)" }}>
-                        {u.full_name_ar ?? "—"}
+                    </td>
+                    <td>
+                      <span className="badge" style={{ background: c.bg, color: c.color }}>
+                        {u.role}
                       </span>
-                    </div>
-                  </td>
-                  <td className="text-sm font-mono" style={{ color: "var(--color-ink-muted)", direction: "ltr" }}>
-                    {u.email}
-                  </td>
-                  <td>
-                    <span className="badge" style={{ background: c.bg, color: c.color }}>{u.role}</span>
-                  </td>
-                  <td className="font-arabic text-sm" style={{ color: "var(--color-ink-2)" }}>
-                    {(u as any).tenants?.name_ar ?? (u as any).tenants?.name ?? "—"}
-                  </td>
-                  <td className="text-sm" style={{ color: "var(--color-ink-muted)" }}>
-                    {u.last_sign_in
-                      ? new Date(u.last_sign_in).toLocaleDateString("ar-SA")
-                      : "لم يدخل بعد"}
-                  </td>
-                  <td className="text-sm" style={{ color: "var(--color-ink-muted)" }}>
-                    {new Date(u.created_at).toLocaleDateString("ar-SA")}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    </td>
+                    <td className="font-arabic text-sm" style={{ color: "var(--color-ink-2)" }}>
+                      {u.tenants?.name_ar ?? u.tenants?.name ?? "—"}
+                    </td>
+                    <td className="text-sm" style={{ color: "var(--color-ink-muted)" }}>
+                      {new Date(u.created_at).toLocaleDateString("ar-SA")}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
