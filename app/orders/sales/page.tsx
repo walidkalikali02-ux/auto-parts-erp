@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { exportDailyReport } from "@/lib/excel";
 
 const statusMap: Record<string, { bg: string; color: string; label: string }> = {
   draft:     { bg: "var(--color-surface-2)", color: "var(--color-ink-muted)", label: "مسودة" },
@@ -14,17 +15,49 @@ const statusMap: Record<string, { bg: string; color: string; label: string }> = 
 };
 
 const payMap: Record<string, { bg: string; color: string; label: string }> = {
-  unpaid:   { bg: "var(--color-red-bg)",    color: "var(--color-red)",    label: "غير مدفوع" },
-  partial:  { bg: "var(--color-amber-bg)",  color: "var(--color-amber)",  label: "جزئي" },
-  paid:     { bg: "var(--color-green-bg)",  color: "var(--color-green)",  label: "مدفوع" },
-  refunded: { bg: "var(--color-blue-bg)",   color: "var(--color-blue)",   label: "مُسترد" },
+  unpaid:   { bg: "var(--color-red-bg)",   color: "var(--color-red)",   label: "غير مدفوع" },
+  partial:  { bg: "var(--color-amber-bg)", color: "var(--color-amber)", label: "جزئي" },
+  paid:     { bg: "var(--color-green-bg)", color: "var(--color-green)", label: "مدفوع" },
+  refunded: { bg: "var(--color-blue-bg)",  color: "var(--color-blue)",  label: "مُسترد" },
 };
 
+const methodAr: Record<string, string> = {
+  cash: "نقدي", card: "بطاقة", transfer: "تحويل", credit: "آجل",
+};
+
+const DATE_RANGES = [
+  { label: "الكل",        value: "" },
+  { label: "اليوم",       value: "today" },
+  { label: "هذا الأسبوع", value: "week" },
+  { label: "هذا الشهر",   value: "month" },
+];
+
+function getDateRange(range: string): { from: string; to: string } | null {
+  const now = new Date();
+  if (range === "today") {
+    const d = now.toISOString().split("T")[0];
+    return { from: `${d}T00:00:00`, to: `${d}T23:59:59` };
+  }
+  if (range === "week") {
+    const day = now.getDay();
+    const start = new Date(now); start.setDate(now.getDate() - day);
+    return { from: start.toISOString().split("T")[0] + "T00:00:00", to: now.toISOString() };
+  }
+  if (range === "month") {
+    const d = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    return { from: `${d}T00:00:00`, to: now.toISOString() };
+  }
+  return null;
+}
+
 export default function SalesOrdersPage() {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+  const [orders,   setOrders]   = useState<any[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [search,   setSearch]   = useState("");
+  const [status,   setStatus]   = useState("");
+  const [payStatus,setPayStatus]= useState("");
+  const [dateRange,setDateRange]= useState("");
+  const [updating, setUpdating] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -32,53 +65,154 @@ export default function SalesOrdersPage() {
       .from("sales_orders")
       .select("*, customers(name, name_ar, phone)")
       .order("created_at", { ascending: false })
-      .limit(100);
-    if (search) q = q.ilike("order_number", `%${search}%`);
-    if (status) q = q.eq("status", status);
+      .limit(200);
+
+    if (status)    q = q.eq("status", status);
+    if (payStatus) q = q.eq("payment_status", payStatus);
+
+    const dr = getDateRange(dateRange);
+    if (dr) { q = q.gte("created_at", dr.from).lte("created_at", dr.to); }
+
+    if (search) {
+      q = q.or(`order_number.ilike.%${search}%`);
+    }
+
     const { data } = await q;
-    setOrders(data ?? []);
+    let rows = data ?? [];
+
+    // Client-side customer name filter
+    if (search) {
+      const s = search.toLowerCase();
+      rows = rows.filter((o) =>
+        o.order_number?.toLowerCase().includes(s) ||
+        o.customers?.name_ar?.includes(search) ||
+        o.customers?.name?.toLowerCase().includes(s)
+      );
+    }
+
+    setOrders(rows);
     setLoading(false);
-  }, [search, status]);
+  }, [search, status, payStatus, dateRange]);
 
   useEffect(() => {
     const t = setTimeout(load, 300);
     return () => clearTimeout(t);
   }, [load]);
 
-  const total = orders.reduce((s, o) => s + (o.total ?? 0), 0);
+  async function markPaid(id: string) {
+    setUpdating(id);
+    await supabase.from("sales_orders").update({ payment_status: "paid" }).eq("id", id);
+    setOrders((prev) => prev.map((o) => o.id === id ? { ...o, payment_status: "paid" } : o));
+    setUpdating(null);
+  }
+
+  async function markDelivered(id: string) {
+    setUpdating(id);
+    await supabase.from("sales_orders").update({ status: "delivered" }).eq("id", id);
+    setOrders((prev) => prev.map((o) => o.id === id ? { ...o, status: "delivered" } : o));
+    setUpdating(null);
+  }
+
+  async function cancelOrder(id: string) {
+    if (!confirm("هل أنت متأكد من إلغاء هذا الطلب؟")) return;
+    setUpdating(id);
+    await supabase.from("sales_orders").update({ status: "cancelled" }).eq("id", id);
+    setOrders((prev) => prev.map((o) => o.id === id ? { ...o, status: "cancelled" } : o));
+    setUpdating(null);
+  }
+
+  const activeOrders = orders.filter((o) => o.status !== "cancelled" && o.status !== "returned");
+  const totalRevenue = activeOrders.reduce((s, o) => s + Number(o.total ?? 0), 0);
+  const unpaidCount  = activeOrders.filter((o) => o.payment_status === "unpaid").length;
+  const deliveredCount = orders.filter((o) => o.status === "delivered").length;
+  const fmt = (n: number) => n.toLocaleString("ar-SA", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   return (
     <div className="flex-1 p-8" style={{ maxWidth: 1200, margin: "0 auto", width: "100%" }}>
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-arabic text-2xl font-bold" style={{ color: "var(--color-ink)" }}>أوامر البيع</h1>
-          <p className="text-sm mt-0.5" style={{ color: "var(--color-ink-muted)" }}>
-            {loading ? "..." : `${orders.length} طلب · إجمالي ${total.toLocaleString("ar-SA")} ر.س`}
+          <p className="text-sm mt-0.5 font-arabic" style={{ color: "var(--color-ink-muted)" }}>
+            {loading ? "..." : `${orders.length} طلب · إجمالي ${fmt(totalRevenue)} ر.س`}
           </p>
         </div>
-        <Link href="/orders/sales/new" className="btn btn-primary">
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          <span className="font-arabic">طلب جديد</span>
-        </Link>
+        <div className="flex gap-2">
+          <button
+            className="btn btn-outline"
+            onClick={() => exportDailyReport(orders, new Date().toISOString().split("T")[0])}
+            style={{ color: "var(--color-green)", borderColor: "var(--color-green)" }}
+          >
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            </svg>
+            <span className="font-arabic">Excel</span>
+          </button>
+          <Link href="/orders/sales/new" className="btn btn-primary">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <span className="font-arabic">طلب جديد</span>
+          </Link>
+        </div>
       </div>
 
-      <div className="card p-4 mb-6 flex gap-3">
-        <div className="flex-1 relative">
+      {/* KPI cards */}
+      <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+        {[
+          { label: "إجمالي الإيرادات", value: `${fmt(totalRevenue)} ر.س`, accent: "var(--color-green)",      emoji: "💰" },
+          { label: "غير مدفوع",         value: unpaidCount,                 accent: "var(--color-red)",        emoji: "⏳" },
+          { label: "تم التسليم",        value: deliveredCount,              accent: "var(--color-blue)",       emoji: "✅" },
+          { label: "إجمالي الطلبات",    value: orders.length,               accent: "var(--color-ink-muted)",  emoji: "📋" },
+        ].map((k) => (
+          <div key={k.label} className="card p-4 flex items-center gap-3" style={{ borderRight: `3px solid ${k.accent}` }}>
+            <span className="text-2xl">{k.emoji}</span>
+            <div>
+              <p className="font-mono font-bold text-lg" style={{ color: "var(--color-ink)", direction: "ltr" }}>{k.value}</p>
+              <p className="font-arabic text-xs mt-0.5" style={{ color: "var(--color-ink-muted)" }}>{k.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="card p-4 mb-6 flex gap-3 flex-wrap">
+        <div className="flex-1 relative" style={{ minWidth: 200 }}>
           <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
             className="absolute" style={{ top: "50%", right: 10, transform: "translateY(-50%)", color: "var(--color-ink-faint)" }}>
             <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
           </svg>
-          <input className="input" style={{ paddingRight: 36 }} placeholder="بحث برقم الطلب..."
+          <input className="input" style={{ paddingRight: 36 }}
+            placeholder="بحث برقم الطلب أو اسم العميل..."
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <select className="input" style={{ width: "auto", minWidth: 150 }} value={status} onChange={(e) => setStatus(e.target.value)}>
+        <select className="input" style={{ width: "auto", minWidth: 140 }} value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">كل الحالات</option>
           {Object.entries(statusMap).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
+        <select className="input" style={{ width: "auto", minWidth: 140 }} value={payStatus} onChange={(e) => setPayStatus(e.target.value)}>
+          <option value="">كل حالات الدفع</option>
+          {Object.entries(payMap).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+        <div className="flex gap-1 p-1 rounded-lg" style={{ background: "var(--color-surface)" }}>
+          {DATE_RANGES.map((r) => (
+            <button
+              key={r.value}
+              className="px-3 py-1.5 rounded-md font-arabic text-xs transition-all"
+              style={{
+                background: dateRange === r.value ? "#fff" : "transparent",
+                color: dateRange === r.value ? "var(--color-ink)" : "var(--color-ink-muted)",
+                boxShadow: dateRange === r.value ? "0 1px 3px rgba(0,0,0,.08)" : "none",
+              }}
+              onClick={() => setDateRange(r.value)}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* Table */}
       <div className="card overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -90,7 +224,7 @@ export default function SalesOrdersPage() {
         ) : orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <span className="text-5xl opacity-20">📋</span>
-            <p className="font-arabic text-base" style={{ color: "var(--color-ink-muted)" }}>لا توجد طلبات بعد</p>
+            <p className="font-arabic text-base" style={{ color: "var(--color-ink-muted)" }}>لا توجد طلبات</p>
             <Link href="/orders/sales/new" className="btn btn-primary">
               <span className="font-arabic">إنشاء أول طلب</span>
             </Link>
@@ -102,24 +236,24 @@ export default function SalesOrdersPage() {
                 <th>رقم الطلب</th>
                 <th>العميل</th>
                 <th>التاريخ</th>
-                <th>الحالة</th>
                 <th>الدفع</th>
+                <th>حالة الدفع</th>
+                <th>حالة الطلب</th>
                 <th>الإجمالي</th>
-                <th></th>
+                <th>إجراءات</th>
               </tr>
             </thead>
             <tbody>
               {orders.map((o) => {
-                const s = statusMap[o.status] ?? statusMap.draft;
-                const p = payMap[o.payment_status] ?? payMap.unpaid;
+                const s  = statusMap[o.status]        ?? statusMap.draft;
+                const p  = payMap[o.payment_status]   ?? payMap.unpaid;
+                const busy = updating === o.id;
                 return (
                   <tr key={o.id}>
                     <td>
-                      <Link
-                        href={`/orders/sales/${o.id}`}
+                      <Link href={`/orders/sales/${o.id}`}
                         className="font-mono text-xs font-semibold hover:underline"
-                        style={{ color: "var(--color-gold)" }}
-                      >
+                        style={{ color: "var(--color-gold)" }}>
                         #{o.order_number}
                       </Link>
                     </td>
@@ -127,22 +261,66 @@ export default function SalesOrdersPage() {
                       <p className="font-arabic text-sm font-medium" style={{ color: "var(--color-ink-2)" }}>
                         {o.customers?.name_ar ?? o.customers?.name ?? "نقدي"}
                       </p>
+                      {o.customers?.phone && (
+                        <p className="font-mono text-xs mt-0.5" style={{ color: "var(--color-ink-muted)" }}>
+                          {o.customers.phone}
+                        </p>
+                      )}
                     </td>
                     <td className="text-sm" style={{ color: "var(--color-ink-muted)" }}>
-                      {new Date(o.order_date).toLocaleDateString("ar-SA")}
+                      {new Date(o.created_at).toLocaleDateString("ar-SA")}
+                      <p className="text-xs opacity-60">{new Date(o.created_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}</p>
                     </td>
-                    <td><span className="badge" style={{ background: s.bg, color: s.color }}>{s.label}</span></td>
+                    <td>
+                      <span className="font-arabic text-xs" style={{ color: "var(--color-ink-muted)" }}>
+                        {methodAr[o.payment_method] ?? o.payment_method}
+                      </span>
+                    </td>
                     <td><span className="badge" style={{ background: p.bg, color: p.color }}>{p.label}</span></td>
+                    <td><span className="badge" style={{ background: s.bg, color: s.color }}>{s.label}</span></td>
                     <td>
                       <span className="font-mono font-bold text-sm" style={{ color: "var(--color-ink)" }}>
-                        {Number(o.total).toLocaleString("ar-SA")}{" "}
-                        <span style={{ color: "var(--color-ink-faint)", fontSize: 10 }}>ر.س</span>
+                        {Number(o.total).toLocaleString("ar-SA", { minimumFractionDigits: 2 })}
+                        <span style={{ color: "var(--color-ink-faint)", fontSize: 10 }}> ر.س</span>
                       </span>
                     </td>
                     <td>
-                      <Link href={`/orders/sales/${o.id}`} className="btn btn-ghost text-xs" style={{ padding: "5px 10px" }}>
-                        <span className="font-arabic">عرض</span>
-                      </Link>
+                      <div className="flex gap-1">
+                        <Link href={`/orders/sales/${o.id}`}
+                          className="btn btn-ghost text-xs" style={{ padding: "4px 10px" }}>
+                          <span className="font-arabic">عرض</span>
+                        </Link>
+                        {o.payment_status !== "paid" && o.status !== "cancelled" && o.status !== "returned" && (
+                          <button
+                            className="btn btn-ghost text-xs"
+                            style={{ padding: "4px 8px", color: "var(--color-green)" }}
+                            disabled={busy}
+                            onClick={() => markPaid(o.id)}
+                          >
+                            {busy ? "..." : <span className="font-arabic">مدفوع</span>}
+                          </button>
+                        )}
+                        {o.status === "confirmed" && (
+                          <button
+                            className="btn btn-ghost text-xs"
+                            style={{ padding: "4px 8px", color: "var(--color-blue)" }}
+                            disabled={busy}
+                            onClick={() => markDelivered(o.id)}
+                          >
+                            {busy ? "..." : <span className="font-arabic">سُلِّم</span>}
+                          </button>
+                        )}
+                        {(o.status === "draft" || o.status === "confirmed") && (
+                          <button
+                            className="btn btn-ghost text-xs"
+                            style={{ padding: "4px 8px", color: "var(--color-red)" }}
+                            disabled={busy}
+                            onClick={() => cancelOrder(o.id)}
+                          >
+                            <span className="font-arabic">إلغاء</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
