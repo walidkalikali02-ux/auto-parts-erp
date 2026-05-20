@@ -136,10 +136,11 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p
-          className="text-center text-xs mt-6 font-arabic"
-          style={{ color: "var(--color-ink-faint)" }}
-        >
+        <p className="text-center text-xs mt-6 font-arabic" style={{ color: "var(--color-ink-faint)" }}>
+          ليس لديك حساب؟{" "}
+          <a href="/signup" style={{ color: "var(--color-gold)", fontWeight: 600 }}>إنشاء حساب مجاني</a>
+        </p>
+        <p className="text-center text-xs mt-2 font-arabic" style={{ color: "var(--color-ink-faint)" }}>
           نظام SaaS لقطع غيار السيارات · جميع الحقوق محفوظة
         </p>
       </div>
