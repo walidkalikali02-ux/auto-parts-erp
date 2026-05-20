@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { MiniTrendChart } from "@/components/charts/MiniTrend";
 
 async function getStats() {
   const [parts, inventory, sales, customers] = await Promise.all([
@@ -39,6 +40,29 @@ async function getLowStockParts() {
   return data ?? [];
 }
 
+async function getRevenueTrend() {
+  const now = new Date();
+  const day7ago = new Date(now.getTime() - 7 * 86400000).toISOString().split("T")[0];
+  const { data } = await supabase
+    .from("sales_orders")
+    .select("total,status,created_at")
+    .gte("created_at", `${day7ago}T00:00:00`)
+    .neq("status", "cancelled")
+    .neq("status", "returned");
+
+  const trendMap: Record<string, number> = {};
+  (data ?? []).forEach((o) => {
+    const d = (o.created_at as string).slice(0, 10);
+    trendMap[d] = (trendMap[d] ?? 0) + Number(o.total);
+  });
+  const result: { date: string; revenue: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 86400000).toISOString().split("T")[0];
+    result.push({ date: d, revenue: Math.round((trendMap[d] ?? 0) * 100) / 100 });
+  }
+  return result;
+}
+
 const statusColor: Record<string, { bg: string; color: string; label: string }> = {
   draft:     { bg: "var(--color-surface-2)", color: "var(--color-ink-muted)", label: "مسودة" },
   confirmed: { bg: "var(--color-blue-bg)",   color: "var(--color-blue)",      label: "مؤكد" },
@@ -53,10 +77,11 @@ function fmt(n: number) {
 }
 
 export default async function DashboardPage() {
-  const [stats, orders, lowStock] = await Promise.all([
+  const [stats, orders, lowStock, trend] = await Promise.all([
     getStats(),
     getRecentOrders(),
     getLowStockParts(),
+    getRevenueTrend(),
   ]);
 
   const kpis = [
@@ -127,6 +152,24 @@ export default async function DashboardPage() {
             <p className="text-xs mt-0.5" style={{ color: "var(--color-ink-faint)" }}>{k.sub}</p>
           </div>
         ))}
+      </div>
+
+      {/* Mini trend + analytics link */}
+      <div className="grid gap-4 mb-8" style={{ gridTemplateColumns: "1fr auto" }}>
+        <MiniTrendChart data={trend} />
+        <Link
+          href="/reports/analytics"
+          className="card p-5 flex flex-col items-center justify-center gap-2 no-underline"
+          style={{ minWidth: 160, border: "1px dashed var(--color-gold-dim)", background: "var(--color-gold-bg)" }}
+        >
+          <span className="text-3xl">📊</span>
+          <p className="font-arabic text-sm font-semibold text-center" style={{ color: "var(--color-gold)" }}>
+            التحليلات التفصيلية
+          </p>
+          <p className="font-arabic text-xs text-center" style={{ color: "var(--color-ink-muted)" }}>
+            مخططات وإحصاءات
+          </p>
+        </Link>
       </div>
 
       <div className="grid gap-6" style={{ gridTemplateColumns: "1fr 340px" }}>
