@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { InvoiceActions } from "./InvoiceActions";
 import { buildZatcaQRData, getZatcaQRUrl } from "@/lib/zatca";
+import { PaymentSection } from "./PaymentSection";
 
 const SELLER_NAME    = "شركة قطع الغيار";
 const SELLER_NAME_EN = "Auto Parts Co.";
@@ -38,6 +39,15 @@ export default async function SalesOrderDetailPage({ params }: { params: Promise
     .from("sales_order_items")
     .select("*, parts(part_number, name, name_ar, unit, tax_rate)")
     .eq("order_id", id);
+
+  const { data: paymentsData } = await supabase
+    .from("payments")
+    .select("id,amount,method,reference_no,paid_at,notes")
+    .eq("order_id", id)
+    .order("paid_at");
+
+  const payments    = paymentsData ?? [];
+  const alreadyPaid = payments.reduce((s, p) => s + Number(p.amount), 0);
 
   // ZATCA QR
   const zatcaData = buildZatcaQRData({
@@ -294,6 +304,18 @@ export default async function SalesOrderDetailPage({ params }: { params: Promise
             شكراً لتعاملكم معنا · للاستفسار يرجى التواصل معنا · جميع الأسعار شاملة ضريبة القيمة المضافة
           </p>
         </div>
+      </div>
+
+      {/* Payment section — no-print */}
+      <div className="no-print mt-6">
+        <PaymentSection
+          orderId={id}
+          orderNumber={order.order_number}
+          orderTotal={Number(order.total)}
+          payments={payments}
+          alreadyPaid={alreadyPaid}
+          paymentStatus={order.payment_status}
+        />
       </div>
     </div>
   );

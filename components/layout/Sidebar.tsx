@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 const nav = [
   {
@@ -126,6 +127,24 @@ const nav = [
     ),
   },
   {
+    label: "الذمم المدينة",
+    href: "/finance",
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+    ),
+  },
+  {
+    label: "تقرير الضريبة",
+    href: "/reports/vat",
+    icon: (
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 2.5 2 2.5-2 3.5 2z" />
+      </svg>
+    ),
+  },
+  {
     label: "الإعدادات",
     href: "/settings",
     icon: (
@@ -216,6 +235,9 @@ export function Sidebar({ user, isSuperadmin }: { user?: { email?: string }; isS
 
       {/* User + Logout */}
       <div className="px-3 py-3" style={{ borderTop: "1px solid var(--color-border-light)" }}>
+        <div className="flex items-center justify-between mb-2 gap-1">
+          <NotificationBell />
+        </div>
         <div className="flex items-center gap-2 mb-2">
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
