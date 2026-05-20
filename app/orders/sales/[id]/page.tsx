@@ -72,7 +72,27 @@ export default async function SalesOrderDetailPage({ params }: { params: Promise
             {payAr[order.payment_status] ?? order.payment_status}
           </span>
         </div>
-        <InvoiceActions orderId={id} orderStatus={order.status} />
+        <InvoiceActions
+          orderId={id}
+          orderStatus={order.status}
+          orderNumber={order.order_number}
+          total={Number(order.total)}
+          taxAmount={Number(order.tax_amount)}
+          subtotal={Number(order.subtotal)}
+          customerName={order.customers?.name_ar ?? order.customers?.name ?? "عميل نقدي"}
+          customerPhone={order.customers?.phone ?? ""}
+          customerVat={order.customers?.tax_number ?? ""}
+          sellerName="شركة قطع الغيار"
+          sellerVat="300000000000003"
+          createdAt={order.created_at ?? order.order_date}
+          items={(items ?? []).map((i: any) => ({
+            name: i.parts?.name_ar ?? i.parts?.name ?? "",
+            partNumber: i.parts?.part_number ?? "",
+            qty: i.quantity,
+            price: i.unit_price,
+            taxRate: i.parts?.tax_rate ?? 15,
+          }))}
+        />
       </div>
 
       {/* ========== PRINTABLE INVOICE ========== */}

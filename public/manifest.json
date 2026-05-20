@@ -1,0 +1,32 @@
+{
+  "name": "AutoParts ERP",
+  "short_name": "AutoParts",
+  "description": "نظام إدارة قطع غيار السيارات",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#B5892A",
+  "orientation": "portrait-primary",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "POS",          "short_name": "POS",    "url": "/pos",           "description": "نقطة البيع" },
+    { "name": "طلب جديد",     "short_name": "طلب",   "url": "/orders/sales/new", "description": "إنشاء طلب بيع" },
+    { "name": "الكتالوج",    "short_name": "كتالوج", "url": "/catalog",        "description": "كتالوج القطع" }
+  ],
+  "categories": ["business", "productivity"]
+}

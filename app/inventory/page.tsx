@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Modal } from "@/components/ui/Modal";
+import { exportInventory } from "@/lib/excel";
 
 const DEFAULT_WAREHOUSE = "e0000000-0000-0000-0000-000000000001";
 
@@ -96,6 +97,16 @@ export default function InventoryPage() {
           <h1 className="font-arabic text-2xl font-bold" style={{ color: "var(--color-ink)" }}>إدارة المخزون</h1>
           <p className="text-sm mt-0.5" style={{ color: "var(--color-ink-muted)" }}>تتبع مستويات المخزون في المستودعات</p>
         </div>
+        <button
+          className="btn btn-outline"
+          onClick={() => exportInventory(items)}
+          style={{ color: "var(--color-green)", borderColor: "var(--color-green)" }}
+        >
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+          </svg>
+          <span className="font-arabic">تصدير Excel</span>
+        </button>
       </div>
 
       <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>

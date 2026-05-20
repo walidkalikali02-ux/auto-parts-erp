@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase-server";
+import { DailyExport } from "@/components/reports/DailyExport";
 
 const methodAr: Record<string, string> = {
   cash: "نقدي", card: "بطاقة", transfer: "تحويل بنكي", credit: "آجل",
@@ -66,12 +67,15 @@ export default async function DailyReportPage() {
             {today.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
         </div>
-        <button className="btn btn-outline no-print" onClick={() => typeof window !== "undefined" && window.print()}>
+        <div className="flex gap-2 no-print">
+        <DailyExport orders={orders} date={todayStr} />
+        <button className="btn btn-outline" onClick={() => typeof window !== "undefined" && window.print()}>
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
           </svg>
           <span className="font-arabic">طباعة</span>
         </button>
+        </div>
       </div>
 
       {/* KPI row */}
