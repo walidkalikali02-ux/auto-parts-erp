@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/components/providers/LanguageProvider";
+import { t } from "@/lib/translations";
 import { supabase } from "@/lib/supabase";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -13,6 +15,7 @@ async function getToken() {
 const fmt = (n: number) => n.toLocaleString("ar-SA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function FinancePage() {
+  const { language } = useLanguage();
   const [unpaid,   setUnpaid]   = useState<any[]>([]);
   const [loading,  setLoading]  = useState(true);
 
@@ -35,9 +38,9 @@ export default function FinancePage() {
     <div className="flex-1 p-8" style={{ maxWidth: 1100, margin: "0 auto", width: "100%" }}>
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="font-arabic text-2xl font-bold mb-1" style={{ color: "var(--color-ink)" }}>الذمم المدينة</h1>
+          <h1 className="font-arabic text-2xl font-bold mb-1" style={{ color: "var(--color-ink)" }}>{t("finance.title", language)}</h1>
           <p className="font-arabic text-sm" style={{ color: "var(--color-ink-muted)" }}>
-            المدفوعات المعلقة وغير المسددة
+            {t("finance.subtitle", language)}
           </p>
         </div>
       </div>
@@ -45,10 +48,10 @@ export default function FinancePage() {
       {/* KPIs */}
       <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
         {[
-          { label: "إجمالي المستحق",   value: `${fmt(totalOutstanding)} ر.س`, accent: "var(--color-red)",   emoji: "💸" },
-          { label: "طلبات متأخرة",      value: overdueCount,                   accent: "var(--color-amber)", emoji: "⏰" },
-          { label: "طلبات آجلة",        value: creditCount,                    accent: "var(--color-blue)",  emoji: "📋" },
-          { label: "إجمالي الطلبات",   value: unpaid.length,                  accent: "var(--color-ink-muted)", emoji: "📊" },
+          { label: t("finance.total_due", language),   value: `${fmt(totalOutstanding)} ر.س`, accent: "var(--color-red)",   emoji: "💸" },
+          { label: t("finance.overdue_orders", language),      value: overdueCount,                   accent: "var(--color-amber)", emoji: "⏰" },
+          { label: t("finance.credit_orders", language),        value: creditCount,                    accent: "var(--color-blue)",  emoji: "📋" },
+          { label: t("finance.total_orders", language),   value: unpaid.length,                  accent: "var(--color-ink-muted)", emoji: "📊" },
         ].map((k) => (
           <div key={k.label} className="card p-4 flex items-center gap-3" style={{ borderRight: `3px solid ${k.accent}` }}>
             <span className="text-2xl">{k.emoji}</span>
@@ -71,19 +74,19 @@ export default function FinancePage() {
         ) : unpaid.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16">
             <span className="text-5xl opacity-20">✅</span>
-            <p className="font-arabic text-base" style={{ color: "var(--color-ink-muted)" }}>لا توجد مدفوعات معلقة</p>
+            <p className="font-arabic text-base" style={{ color: "var(--color-ink-muted)" }}>{t("finance.no_pending", language)}</p>
           </div>
         ) : (
           <table className="erp-table">
             <thead>
               <tr>
-                <th>رقم الطلب</th>
-                <th>العميل</th>
-                <th>التاريخ</th>
-                <th>أيام التأخير</th>
-                <th>إجمالي الطلب</th>
-                <th>المدفوع</th>
-                <th>المتبقي</th>
+                <th>{t("table.order_number", language)}</th>
+                <th>{t("table.customer", language)}</th>
+                <th>{t("table.date", language)}</th>
+                <th>{t("table.days_overdue", language)}</th>
+                <th>{t("table.total", language)}</th>
+                <th>{t("finance.amount_paid", language)}</th>
+                <th>{t("finance.amount_remaining", language)}</th>
                 <th></th>
               </tr>
             </thead>
@@ -101,7 +104,7 @@ export default function FinancePage() {
                     </td>
                     <td>
                       <p className="font-arabic text-sm font-medium" style={{ color: "var(--color-ink-2)" }}>
-                        {o.customers?.name_ar ?? "نقدي"}
+                        {o.customers?.name_ar ?? t("payment.method.cash", language)}
                       </p>
                       {o.customers?.phone && (
                         <p className="font-mono text-xs" style={{ color: "var(--color-ink-muted)" }}>{o.customers.phone}</p>
@@ -115,7 +118,7 @@ export default function FinancePage() {
                         background: overdue ? "var(--color-red-bg)" : "var(--color-amber-bg)",
                         color:      overdue ? "var(--color-red)"    : "var(--color-amber)",
                       }}>
-                        {o.days_overdue} يوم
+                        {o.days_overdue} {t("finance.days_overdue_suffix", language)}
                       </span>
                     </td>
                     <td className="font-mono text-sm" style={{ direction: "ltr" }}>
@@ -129,7 +132,7 @@ export default function FinancePage() {
                     </td>
                     <td>
                       <Link href={`/orders/sales/${o.id}`} className="btn btn-ghost text-xs" style={{ padding: "4px 10px" }}>
-                        <span className="font-arabic">دفع</span>
+                        <span className="font-arabic">{t("action.pay", language)}</span>
                       </Link>
                     </td>
                   </tr>

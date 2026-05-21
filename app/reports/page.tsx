@@ -1,61 +1,66 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/components/providers/LanguageProvider";
+import { t } from "@/lib/translations";
 import { supabase } from "@/lib/supabase";
 
-const fmt  = (n: number) => n.toLocaleString("ar-SA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtN = (n: number) => n.toLocaleString("ar-SA");
+const fmt  = (n: number, locale: string) => n.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtN = (n: number, locale: string) => n.toLocaleString(locale);
 
-const REPORTS = [
-  {
-    title: "التقرير اليومي",
-    desc:  "مبيعات اليوم، الدفعات، مقارنة بالأمس، ملخص الصندوق",
-    href:  "/reports/daily",
-    icon:  "📅",
-    color: "var(--color-blue)",
-    tags:  ["مبيعات", "يومي", "دفعات"],
-  },
-  {
-    title: "التحليلات والمخططات",
-    desc:  "مخططات الإيرادات 30 يوم، أكثر القطع مبيعاً، أفضل العملاء",
-    href:  "/reports/analytics",
-    icon:  "📊",
-    color: "var(--color-gold)",
-    tags:  ["مخططات", "إيرادات", "تحليل"],
-  },
-  {
-    title: "تقرير المبيعات",
-    desc:  "مبيعات بحسب الفترة، العميل، الفئة، طريقة الدفع",
-    href:  "/reports/sales",
-    icon:  "🛒",
-    color: "var(--color-green)",
-    tags:  ["مبيعات", "تفصيلي", "عملاء"],
-  },
-  {
-    title: "الأرباح والخسائر",
-    desc:  "إجمالي الإيراد، تكلفة البضاعة، الربح الإجمالي، هامش الربح",
-    href:  "/reports/profit",
-    icon:  "💹",
-    color: "var(--color-green)",
-    tags:  ["ربح", "تكاليف", "هامش"],
-  },
-  {
-    title: "تقرير المخزون",
-    desc:  "قيمة المخزون، حركة البضاعة، الأصناف الراكدة",
-    href:  "/reports/inventory-report",
-    icon:  "📦",
-    color: "var(--color-amber)",
-    tags:  ["مخزون", "حركة", "تقييم"],
-  },
-  {
-    title: "تقرير الضريبة (ZATCA)",
-    desc:  "الضريبة المحصلة، ضريبة المشتريات، صافي الضريبة المستحقة",
-    href:  "/reports/vat",
-    icon:  "🧾",
-    color: "var(--color-red)",
-    tags:  ["ضريبة", "ZATCA", "إقرار"],
-  },
-];
+// Helper to build reports data with translations
+function getReportsData(language: "ar" | "en") {
+  return [
+    {
+      titleKey: "report.daily",
+      descKey: "report.daily.desc",
+      href:  "/reports/daily",
+      icon:  "📅",
+      color: "var(--color-blue)",
+      tagsKeys:  ["tag.sales", "tag.daily", "tag.payments"],
+    },
+    {
+      titleKey: "report.analytics",
+      descKey: "report.analytics.desc",
+      href:  "/reports/analytics",
+      icon:  "📊",
+      color: "var(--color-gold)",
+      tagsKeys:  ["tag.charts", "tag.revenue", "tag.analysis"],
+    },
+    {
+      titleKey: "report.sales",
+      descKey: "report.sales.desc",
+      href:  "/reports/sales",
+      icon:  "🛒",
+      color: "var(--color-green)",
+      tagsKeys:  ["tag.sales", "tag.detailed", "tag.customers"],
+    },
+    {
+      titleKey: "report.profit",
+      descKey: "report.profit.desc",
+      href:  "/reports/profit",
+      icon:  "💹",
+      color: "var(--color-green)",
+      tagsKeys:  ["tag.profit", "tag.costs", "tag.margin"],
+    },
+    {
+      titleKey: "report.inventory.report",
+      descKey: "report.inventory.desc",
+      href:  "/reports/inventory-report",
+      icon:  "📦",
+      color: "var(--color-amber)",
+      tagsKeys:  ["tag.inventory", "tag.movement", "tag.valuation"],
+    },
+    {
+      titleKey: "report.vat.title",
+      descKey: "report.vat.desc",
+      href:  "/reports/vat",
+      icon:  "🧾",
+      color: "var(--color-red)",
+      tagsKeys:  ["tag.tax", "tag.zatca", "tag.return"],
+    },
+  ];
+}
 
 interface Stats {
   month_revenue: number;
@@ -69,8 +74,11 @@ interface Stats {
 }
 
 export default function ReportsPage() {
+  const { language } = useLanguage();
+  const locale = language === "ar" ? "ar-SA" : "en-US";
   const [stats,   setStats]   = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const reports = getReportsData(language);
 
   useEffect(() => {
     (async () => {
@@ -107,10 +115,10 @@ export default function ReportsPage() {
   }, []);
 
   const kpis = stats ? [
-    { label: "إيرادات الشهر",      value: `${fmt(stats.month_revenue)} ر.س`,  sub: `${fmtN(stats.month_orders)} طلب`,         accent: "var(--color-green)",     emoji: "💰" },
-    { label: "إيرادات اليوم",      value: `${fmt(stats.today_revenue)} ر.س`,  sub: `${fmtN(stats.today_orders)} طلب اليوم`,    accent: "var(--color-blue)",      emoji: "📅" },
-    { label: "قيمة المخزون",      value: `${fmt(stats.stock_value)} ر.س`,     sub: `${fmtN(stats.low_stock)} صنف منخفض`,       accent: "var(--color-gold)",      emoji: "📦" },
-    { label: "مستحقات غير مسددة", value: `${fmt(stats.unpaid_amount)} ر.س`,  sub: "طلبات معلقة",                              accent: "var(--color-red)",       emoji: "💸" },
+    { labelKey: "report.hub.month_revenue",      value: `${fmt(stats.month_revenue, locale)} ر.س`,  subKey: "report.hub.orders_count",      subValue: fmtN(stats.month_orders, locale),   accent: "var(--color-green)",     emoji: "💰" },
+    { labelKey: "report.hub.today_revenue",      value: `${fmt(stats.today_revenue, locale)} ر.س`,  subKey: "report.hub.orders_today",      subValue: fmtN(stats.today_orders, locale),   accent: "var(--color-blue)",      emoji: "📅" },
+    { labelKey: "report.hub.stock_value",        value: `${fmt(stats.stock_value, locale)} ر.س`,    subKey: "report.hub.low_stock",         subValue: fmtN(stats.low_stock, locale),      accent: "var(--color-gold)",      emoji: "📦" },
+    { labelKey: "report.hub.unpaid_amount",      value: `${fmt(stats.unpaid_amount, locale)} ر.س`,  subKey: "report.hub.pending",           subValue: "",                                   accent: "var(--color-red)",       emoji: "💸" },
   ] : [];
 
   return (
@@ -119,10 +127,10 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="font-arabic text-2xl font-bold mb-1" style={{ color: "var(--color-ink)" }}>
-          التقارير والإحصاءات
+          {t("report.hub.title", language)}
         </h1>
         <p className="font-arabic text-sm" style={{ color: "var(--color-ink-muted)" }}>
-          نظرة شاملة على أداء المنشأة
+          {t("report.hub.subtitle", language)}
         </p>
       </div>
 
@@ -136,7 +144,7 @@ export default function ReportsPage() {
       ) : (
         <div className="grid gap-4 mb-8" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
           {kpis.map((k) => (
-            <div key={k.label} className="card p-5" style={{ borderTop: `3px solid ${k.accent}` }}>
+            <div key={k.labelKey} className="card p-5" style={{ borderTop: `3px solid ${k.accent}` }}>
               <div className="flex items-start justify-between mb-3">
                 <span className="text-2xl">{k.emoji}</span>
                 <div className="w-1.5 h-6 rounded-full opacity-30" style={{ background: k.accent }} />
@@ -145,8 +153,12 @@ export default function ReportsPage() {
                 style={{ color: "var(--color-ink)", direction: "ltr", textAlign: "right" }}>
                 {k.value}
               </p>
-              <p className="font-arabic text-sm font-medium" style={{ color: "var(--color-ink-2)" }}>{k.label}</p>
-              <p className="font-arabic text-xs mt-0.5" style={{ color: "var(--color-ink-faint)" }}>{k.sub}</p>
+              <p className="font-arabic text-sm font-medium" style={{ color: "var(--color-ink-2)" }}>{t(k.labelKey, language)}</p>
+              {k.subValue && (
+                <p className="font-arabic text-xs mt-0.5" style={{ color: "var(--color-ink-faint)" }}>
+                  {k.subValue} {t(k.subKey, language)}
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -160,10 +172,10 @@ export default function ReportsPage() {
             <span className="text-3xl">🧾</span>
             <div>
               <p className="font-arabic font-semibold" style={{ color: "var(--color-ink)" }}>
-                ضريبة القيمة المضافة — هذا الشهر
+                {t("report.vat.this_month", language)}
               </p>
               <p className="font-arabic text-sm" style={{ color: "var(--color-ink-muted)" }}>
-                الضريبة المحصلة على المبيعات
+                {t("report.vat.collected_label", language)}
               </p>
             </div>
           </div>
@@ -171,14 +183,14 @@ export default function ReportsPage() {
             <div className="text-center">
               <p className="font-mono font-bold text-xl"
                 style={{ color: "var(--color-gold)", direction: "ltr" }}>
-                {fmt(stats.month_vat)} ر.س
+                {fmt(stats.month_vat, locale)} ر.س
               </p>
               <p className="font-arabic text-xs" style={{ color: "var(--color-ink-muted)" }}>
-                ضريبة المبيعات
+                {t("report.vat.sales_tax", language)}
               </p>
             </div>
             <Link href="/reports/vat" className="btn btn-gold text-sm">
-              <span className="font-arabic">عرض الإقرار الكامل</span>
+              <span className="font-arabic">{t("report.vat.full_return", language)}</span>
             </Link>
           </div>
         </div>
@@ -186,10 +198,10 @@ export default function ReportsPage() {
 
       {/* Report cards */}
       <h2 className="font-arabic font-semibold text-lg mb-4" style={{ color: "var(--color-ink)" }}>
-        التقارير المتاحة
+        {t("report.hub.available_reports", language)}
       </h2>
       <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-        {REPORTS.map((r) => (
+        {reports.map((r) => (
           <Link
             key={r.href}
             href={r.href}
@@ -210,18 +222,18 @@ export default function ReportsPage() {
             <div>
               <h3 className="font-arabic font-bold text-base mb-1.5"
                 style={{ color: "var(--color-ink)" }}>
-                {r.title}
+                {t(r.titleKey, language)}
               </h3>
               <p className="font-arabic text-sm leading-relaxed"
                 style={{ color: "var(--color-ink-muted)" }}>
-                {r.desc}
+                {t(r.descKey, language)}
               </p>
             </div>
             <div className="flex gap-2 flex-wrap mt-auto">
-              {r.tags.map((t) => (
-                <span key={t} className="badge text-xs"
+              {r.tagsKeys.map((tagKey) => (
+                <span key={tagKey} className="badge text-xs"
                   style={{ background: "var(--color-surface-2)", color: "var(--color-ink-muted)" }}>
-                  {t}
+                  {t(tagKey, language)}
                 </span>
               ))}
             </div>

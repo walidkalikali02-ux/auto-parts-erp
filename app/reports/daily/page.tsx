@@ -1,23 +1,38 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useLanguage } from "@/components/providers/LanguageProvider";
+import { t } from "@/lib/translations";
 import { supabase } from "@/lib/supabase";
 import { exportDailyReport } from "@/lib/excel";
 
-const methodAr: Record<string, string> = {
-  cash: "نقدي", card: "بطاقة", transfer: "تحويل بنكي", credit: "آجل",
-};
+// Helper functions for payment and order status labels
+function getMethodLabel(method: string, language: "ar" | "en"): string {
+  const methodMap: Record<string, Record<"ar"|"en", string>> = {
+    cash: { ar: "نقدي", en: "Cash" },
+    card: { ar: "بطاقة", en: "Card" },
+    transfer: { ar: "تحويل بنكي", en: "Bank Transfer" },
+    credit: { ar: "آجل", en: "Credit" },
+  };
+  return methodMap[method]?.[language] ?? method;
+}
 
-const statusColor: Record<string, { bg: string; color: string; label: string }> = {
-  draft:     { bg: "var(--color-surface-2)", color: "var(--color-ink-muted)", label: "مسودة" },
-  confirmed: { bg: "var(--color-blue-bg)",   color: "var(--color-blue)",      label: "مؤكد" },
-  delivered: { bg: "var(--color-green-bg)",  color: "var(--color-green)",     label: "مُسلَّم" },
-  returned:  { bg: "var(--color-red-bg)",    color: "var(--color-red)",       label: "مُرتجع" },
-  cancelled: { bg: "var(--color-red-bg)",    color: "var(--color-red)",       label: "ملغي" },
-};
+function getStatusColors(status: string, language: "ar" | "en"): { bg: string; color: string; label: string } {
+  const statusMap: Record<string, { bg: string; color: string; label_ar: string; label_en: string }> = {
+    draft:     { bg: "var(--color-surface-2)", color: "var(--color-ink-muted)", label_ar: "مسودة", label_en: "Draft" },
+    confirmed: { bg: "var(--color-blue-bg)",   color: "var(--color-blue)",      label_ar: "مؤكد", label_en: "Confirmed" },
+    delivered: { bg: "var(--color-green-bg)",  color: "var(--color-green)",     label_ar: "مُسلَّم", label_en: "Delivered" },
+    returned:  { bg: "var(--color-red-bg)",    color: "var(--color-red)",       label_ar: "مُرتجع", label_en: "Returned" },
+    cancelled: { bg: "var(--color-red-bg)",    color: "var(--color-red)",       label_ar: "ملغي", label_en: "Cancelled" },
+  };
+  const m = statusMap[status] ?? statusMap.draft;
+  return { bg: m.bg, color: m.color, label: language === "ar" ? m.label_ar : m.label_en };
+}
 
-const fmt = (n: number) => n.toLocaleString("ar-SA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: number, locale: string) => n.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function DailyReportPage() {
+  const { language } = useLanguage();
+  const locale = language === "ar" ? "ar-SA" : "en-US";
   const today = new Date().toISOString().split("T")[0];
   const [date,    setDate]    = useState(today);
   const [orders,  setOrders]  = useState<any[]>([]);
@@ -65,7 +80,7 @@ export default function DailyReportPage() {
     byMethod[m] = (byMethod[m] ?? 0) + Number(o.total);
   });
 
-  const displayDate = new Date(date + "T12:00:00").toLocaleDateString("ar-SA", {
+  const displayDate = new Date(date + "T12:00:00").toLocaleDateString(locale, {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
 
@@ -76,7 +91,7 @@ export default function DailyReportPage() {
       <div className="flex items-start justify-between mb-6 no-print">
         <div>
           <h1 className="font-arabic text-2xl font-bold" style={{ color: "var(--color-ink)" }}>
-            التقرير اليومي
+            {t("report.daily", language)}
           </h1>
           <p className="text-sm mt-0.5 font-arabic" style={{ color: "var(--color-ink-muted)" }}>
             {displayDate}
@@ -100,13 +115,13 @@ export default function DailyReportPage() {
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
             </svg>
-            <span className="font-arabic">Excel</span>
+            <span className="font-arabic">{t("action.export", language)} Excel</span>
           </button>
           <button className="btn btn-outline" onClick={() => window.print()}>
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
             </svg>
-            <span className="font-arabic">طباعة</span>
+            <span className="font-arabic">{t("action.print", language)}</span>
           </button>
         </div>
       </div>
@@ -123,20 +138,20 @@ export default function DailyReportPage() {
           {/* KPI row */}
           <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
             {[
-              { label: "إجمالي المبيعات", value: `${fmt(totalSales)} ر.س`,   emoji: "💰", accent: "var(--color-green)" },
-              { label: "ضريبة القيمة",    value: `${fmt(totalVAT)} ر.س`,     emoji: "📊", accent: "var(--color-blue)" },
-              { label: "المرتجعات",        value: `${fmt(totalReturns)} ر.س`, emoji: "↩️", accent: "var(--color-red)" },
-              { label: "الصافي",           value: `${fmt(netRevenue)} ر.س`,   emoji: "✅", accent: "var(--color-gold)" },
-              { label: "عدد الطلبات",      value: active.length,              emoji: "📋", accent: "var(--color-ink-muted)" },
+              { labelKey: "report.daily.total_sales",    value: `${fmt(totalSales, locale)} ร.س`,   emoji: "💰", accent: "var(--color-green)" },
+              { labelKey: "report.daily.vat",            value: `${fmt(totalVAT, locale)} ร.س`,     emoji: "📊", accent: "var(--color-blue)" },
+              { labelKey: "report.daily.returns",        value: `${fmt(totalReturns, locale)} ร.س`, emoji: "↩️", accent: "var(--color-red)" },
+              { labelKey: "report.daily.net",            value: `${fmt(netRevenue, locale)} ร.س`,   emoji: "✅", accent: "var(--color-gold)" },
+              { labelKey: "report.daily.order_count",    value: active.length,                        emoji: "📋", accent: "var(--color-ink-muted)" },
             ].map((k) => (
-              <div key={k.label} className="card p-4" style={{ borderTop: `2px solid ${k.accent}` }}>
+              <div key={k.labelKey} className="card p-4" style={{ borderTop: `2px solid ${k.accent}` }}>
                 <div className="text-xl mb-2">{k.emoji}</div>
                 <p className="font-mono font-bold text-lg"
                   style={{ color: "var(--color-ink)", direction: "ltr", textAlign: "right" }}>
                   {k.value}
                 </p>
                 <p className="font-arabic text-xs mt-0.5" style={{ color: "var(--color-ink-muted)" }}>
-                  {k.label}
+                  {t(k.labelKey, language)}
                 </p>
               </div>
             ))}
@@ -148,30 +163,30 @@ export default function DailyReportPage() {
             <div className="card overflow-hidden">
               <div className="px-5 py-4" style={{ borderBottom: "1px solid var(--color-border-light)" }}>
                 <h3 className="font-arabic font-semibold" style={{ color: "var(--color-ink)" }}>
-                  طلبات اليوم ({orders.length})
+                  {t("report.daily.orders_today", language)} ({orders.length})
                 </h3>
               </div>
               {orders.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-2">
                   <span className="text-4xl opacity-20">📋</span>
                   <p className="font-arabic text-sm" style={{ color: "var(--color-ink-muted)" }}>
-                    لا توجد طلبات في هذا اليوم
+                    {t("msg.no_orders_today", language)}
                   </p>
                 </div>
               ) : (
                 <table className="erp-table">
                   <thead>
                     <tr>
-                      <th>رقم الطلب</th>
-                      <th>العميل</th>
-                      <th>الدفع</th>
-                      <th>الحالة</th>
-                      <th>الإجمالي</th>
+                      <th>{t("table.order_number", language)}</th>
+                      <th>{t("table.customer", language)}</th>
+                      <th>{t("table.payment_method", language)}</th>
+                      <th>{t("table.status", language)}</th>
+                      <th>{t("table.total", language)}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {orders.map((o: any) => {
-                      const s = statusColor[o.status] ?? statusColor.draft;
+                      const s = getStatusColors(o.status, language);
                       return (
                         <tr key={o.id}>
                           <td className="font-mono text-xs font-semibold"
@@ -183,7 +198,7 @@ export default function DailyReportPage() {
                           </td>
                           <td className="font-arabic text-sm"
                             style={{ color: "var(--color-ink-muted)" }}>
-                            {methodAr[o.payment_method] ?? o.payment_method}
+                            {getMethodLabel(o.payment_method, language)}
                           </td>
                           <td>
                             <span className="badge"
@@ -194,7 +209,7 @@ export default function DailyReportPage() {
                           <td className="font-mono text-sm font-semibold"
                             style={{ color: o.status === "returned" ? "var(--color-red)" : "var(--color-ink)" }}>
                             {o.status === "returned" ? "-" : ""}
-                            {fmt(Math.abs(Number(o.total)))} ر.س
+                            {fmt(Math.abs(Number(o.total)), locale)} ร.س
                           </td>
                         </tr>
                       );
@@ -211,10 +226,10 @@ export default function DailyReportPage() {
               <div className="card p-5">
                 <h3 className="font-arabic font-semibold mb-4"
                   style={{ color: "var(--color-ink)" }}>
-                  توزيع طرق الدفع
+                  {t("report.daily.payment_breakdown", language)}
                 </h3>
                 <div className="flex flex-col gap-3">
-                  {Object.keys(methodAr).map((m) => {
+                  {Object.keys({ cash: 0, card: 0, transfer: 0, credit: 0 }).map((m) => {
                     const amount = byMethod[m] ?? 0;
                     const pct    = totalSales > 0 ? (amount / totalSales) * 100 : 0;
                     return (
@@ -222,11 +237,11 @@ export default function DailyReportPage() {
                         <div className="flex justify-between text-sm mb-1">
                           <span className="font-arabic"
                             style={{ color: "var(--color-ink-2)" }}>
-                            {methodAr[m]}
+                            {getMethodLabel(m, language)}
                           </span>
                           <span className="font-mono"
                             style={{ color: "var(--color-ink)", direction: "ltr" }}>
-                            {fmt(amount)} ر.س
+                            {fmt(amount, locale)} ร.س
                           </span>
                         </div>
                         <div className="h-1.5 rounded-full"
@@ -248,15 +263,15 @@ export default function DailyReportPage() {
               <div className="card p-5">
                 <h3 className="font-arabic font-semibold mb-3"
                   style={{ color: "var(--color-ink)" }}>
-                  مقارنة بالأمس
+                  {t("report.daily.vs_yesterday", language)}
                 </h3>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-arabic text-xs"
-                      style={{ color: "var(--color-ink-muted)" }}>أمس</p>
+                      style={{ color: "var(--color-ink-muted)" }}>{t("report.daily.yesterday", language)}</p>
                     <p className="font-mono font-semibold"
                       style={{ color: "var(--color-ink-2)", direction: "ltr" }}>
-                      {fmt(yTotal)} ر.س
+                      {fmt(yTotal, locale)} ร.س
                     </p>
                   </div>
                   <div className="badge text-sm font-semibold"
@@ -269,10 +284,10 @@ export default function DailyReportPage() {
                   </div>
                   <div>
                     <p className="font-arabic text-xs"
-                      style={{ color: "var(--color-ink-muted)" }}>اليوم</p>
+                      style={{ color: "var(--color-ink-muted)" }}>{t("report.daily.today", language)}</p>
                     <p className="font-mono font-semibold"
                       style={{ color: "var(--color-gold)", direction: "ltr" }}>
-                      {fmt(totalSales)} ر.س
+                      {fmt(totalSales, locale)} ร.س
                     </p>
                   </div>
                 </div>
@@ -283,30 +298,30 @@ export default function DailyReportPage() {
                 style={{ background: "var(--color-gold-bg)", border: "1px solid var(--color-gold-dim)" }}>
                 <h3 className="font-arabic font-semibold mb-3"
                   style={{ color: "var(--color-ink)" }}>
-                  ملخص الصندوق
+                  {t("report.daily.cash_summary", language)}
                 </h3>
                 {[
-                  ["مبيعات نقدية", byMethod["cash"]     ?? 0],
-                  ["مبيعات بطاقة", byMethod["card"]     ?? 0],
-                  ["تحويلات",      byMethod["transfer"] ?? 0],
-                  ["آجل (ذمم)",    byMethod["credit"]   ?? 0],
+                  [t("report.daily.cash_sales", language),   byMethod["cash"]     ?? 0],
+                  [t("report.daily.card_sales", language),   byMethod["card"]     ?? 0],
+                  [t("report.daily.transfers", language),    byMethod["transfer"] ?? 0],
+                  [t("report.daily.credit", language),       byMethod["credit"]   ?? 0],
                 ].map(([k, v]) => (
                   <div key={k as string} className="flex justify-between text-sm mb-2">
                     <span className="font-arabic"
                       style={{ color: "var(--color-ink-muted)" }}>{k}</span>
                     <span className="font-mono"
                       style={{ color: "var(--color-ink)", direction: "ltr" }}>
-                      {fmt(v as number)} ر.س
+                      {fmt(v as number, locale)} ร.س
                     </span>
                   </div>
                 ))}
                 <div className="flex justify-between pt-2 mt-1"
                   style={{ borderTop: "2px solid var(--color-gold)" }}>
                   <span className="font-arabic font-bold"
-                    style={{ color: "var(--color-ink)" }}>الصافي</span>
+                    style={{ color: "var(--color-ink)" }}>{t("report.daily.net", language)}</span>
                   <span className="font-mono font-bold text-lg"
                     style={{ color: "var(--color-gold)", direction: "ltr" }}>
-                    {fmt(netRevenue)} ر.س
+                    {fmt(netRevenue, locale)} ร.س
                   </span>
                 </div>
               </div>

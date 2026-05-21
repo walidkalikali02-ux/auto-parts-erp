@@ -4,9 +4,18 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Modal } from "@/components/ui/Modal";
 import { PartForm } from "@/components/parts/PartForm";
+import { useLanguage } from "@/components/providers/LanguageProvider";
+import { t } from "@/lib/translations";
 import type { Part, PartCategory } from "@/lib/types";
 
-const conditionLabel: Record<string, string> = { new: "جديد", used: "مستعمل", refurbished: "مجدد" };
+const getConditionLabel = (condition: string, language: string): string => {
+  const conditionKey: Record<string, string> = {
+    new: "catalog.condition_new",
+    used: "catalog.condition_used",
+    refurbished: "catalog.condition_refurbished",
+  };
+  return t(conditionKey[condition] || "catalog.condition_new", language);
+};
 const conditionColor: Record<string, { bg: string; color: string }> = {
   new:         { bg: "var(--color-green-bg)",  color: "var(--color-green)" },
   used:        { bg: "var(--color-amber-bg)",  color: "var(--color-amber)" },
@@ -14,6 +23,7 @@ const conditionColor: Record<string, { bg: string; color: string }> = {
 };
 
 export default function CatalogPage() {
+  const { language } = useLanguage();
   const [parts, setParts] = useState<Part[]>([]);
   const [categories, setCategories] = useState<PartCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,16 +80,16 @@ export default function CatalogPage() {
     <div className="flex-1 p-8" style={{ maxWidth: 1200, margin: "0 auto", width: "100%" }}>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-arabic text-2xl font-bold" style={{ color: "var(--color-ink)" }}>كتالوج القطع</h1>
+          <h1 className="font-arabic text-2xl font-bold" style={{ color: "var(--color-ink)" }}>{t("catalog.title", language)}</h1>
           <p className="text-sm mt-0.5" style={{ color: "var(--color-ink-muted)" }}>
-            {loading ? "جارٍ التحميل..." : `${parts.length} قطعة`}
+            {loading ? t("msg.loading", language) : `${parts.length} ${t("catalog.part", language)}`}
           </p>
         </div>
         <button className="btn btn-primary" onClick={openAdd}>
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path d="M12 5v14M5 12h14" />
           </svg>
-          <span className="font-arabic">إضافة قطعة</span>
+          <span className="font-arabic">{t("catalog.add_part", language)}</span>
         </button>
       </div>
 
@@ -90,18 +100,18 @@ export default function CatalogPage() {
             className="absolute" style={{ top: "50%", right: 10, transform: "translateY(-50%)", color: "var(--color-ink-faint)" }}>
             <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
           </svg>
-          <input className="input" style={{ paddingRight: 36 }} placeholder="بحث برقم القطعة، الاسم، رقم OEM..."
+          <input className="input" style={{ paddingRight: 36 }} placeholder={t("catalog.search_placeholder", language)}
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <select className="input" style={{ width: "auto", minWidth: 160 }} value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="">كل الفئات</option>
+          <option value="">{t("filter.all_categories", language)}</option>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name_ar || c.name}</option>)}
         </select>
         <select className="input" style={{ width: "auto", minWidth: 130 }} value={condition} onChange={(e) => setCondition(e.target.value)}>
-          <option value="">كل الحالات</option>
-          <option value="new">جديد</option>
-          <option value="used">مستعمل</option>
-          <option value="refurbished">مجدد</option>
+          <option value="">{t("filter.all_conditions", language)}</option>
+          <option value="new">{getConditionLabel("new", language)}</option>
+          <option value="used">{getConditionLabel("used", language)}</option>
+          <option value="refurbished">{getConditionLabel("refurbished", language)}</option>
         </select>
       </div>
 
@@ -116,22 +126,22 @@ export default function CatalogPage() {
         ) : parts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <span className="text-5xl opacity-20">⚙️</span>
-            <p className="font-arabic text-base font-medium" style={{ color: "var(--color-ink-muted)" }}>لا توجد قطع</p>
+            <p className="font-arabic text-base font-medium" style={{ color: "var(--color-ink-muted)" }}>{t("msg.no_data", language)}</p>
             <button className="btn btn-primary" onClick={openAdd}>
-              <span className="font-arabic">إضافة أول قطعة</span>
+              <span className="font-arabic">{t("catalog.add_first_part", language)}</span>
             </button>
           </div>
         ) : (
           <table className="erp-table">
             <thead>
               <tr>
-                <th>رقم القطعة</th>
-                <th>الاسم</th>
-                <th>الفئة</th>
-                <th>الماركة</th>
-                <th>الحالة</th>
-                <th>سعر التكلفة</th>
-                <th>سعر البيع</th>
+                <th>{t("table.part_number", language)}</th>
+                <th>{t("table.name", language)}</th>
+                <th>{t("table.category", language)}</th>
+                <th>{t("table.brand", language)}</th>
+                <th>{t("table.condition", language)}</th>
+                <th>{t("table.cost_price", language)}</th>
+                <th>{t("table.selling_price", language)}</th>
                 <th></th>
               </tr>
             </thead>
@@ -154,7 +164,7 @@ export default function CatalogPage() {
                     <td className="text-sm" style={{ color: "var(--color-ink-2)" }}>{p.brand ?? "—"}</td>
                     <td>
                       <span className="badge" style={{ background: cond.bg, color: cond.color }}>
-                        {conditionLabel[p.condition]}
+                        {getConditionLabel(p.condition, language)}
                       </span>
                     </td>
                     <td>
@@ -173,10 +183,10 @@ export default function CatalogPage() {
                           <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
-                          <span className="font-arabic">تعديل</span>
+                          <span className="font-arabic">{t("action.edit", language)}</span>
                         </button>
                         <Link href={`/catalog/${p.id}`} className="btn btn-ghost text-xs" style={{ padding: "5px 10px" }}>
-                          <span className="font-arabic">تفاصيل</span>
+                          <span className="font-arabic">{t("action.view", language)}</span>
                         </Link>
                         <button
                           className="w-7 h-7 rounded flex items-center justify-center"
@@ -203,7 +213,7 @@ export default function CatalogPage() {
       <Modal
         open={showForm}
         onClose={closeForm}
-        title={editPart ? "تعديل القطعة" : "إضافة قطعة جديدة"}
+        title={editPart ? t("catalog.edit_part", language) : t("catalog.add_new_part", language)}
         size="lg"
       >
         <PartForm
@@ -214,17 +224,17 @@ export default function CatalogPage() {
       </Modal>
 
       {/* Delete Confirmation */}
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="حذف القطعة" size="sm">
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={t("catalog.delete_part", language)} size="sm">
         <div className="flex flex-col gap-4">
           <p className="font-arabic text-sm leading-relaxed" style={{ color: "var(--color-ink-2)" }}>
-            هل أنت متأكد من حذف القطعة{" "}
+            {t("catalog.confirm_delete", language)}{" "}
             <strong style={{ color: "var(--color-ink)" }}>{deleteTarget?.name_ar}</strong>؟
             <br />
-            لن تظهر في الكتالوج ولكن ستبقى في السجلات.
+            {t("catalog.delete_note", language)}
           </p>
           <div className="flex gap-3 justify-end">
             <button className="btn btn-outline" onClick={() => setDeleteTarget(null)}>
-              <span className="font-arabic">إلغاء</span>
+              <span className="font-arabic">{t("action.cancel", language)}</span>
             </button>
             <button
               className="btn"
@@ -232,7 +242,7 @@ export default function CatalogPage() {
               onClick={confirmDelete}
               disabled={deleting}
             >
-              <span className="font-arabic">حذف</span>
+              <span className="font-arabic">{t("action.delete", language)}</span>
             </button>
           </div>
         </div>
