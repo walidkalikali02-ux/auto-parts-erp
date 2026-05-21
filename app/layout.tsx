@@ -3,6 +3,7 @@ import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { createClient } from "@/lib/supabase-server";
 import { PWARegister } from "@/components/PWARegister";
+import { ToastProvider } from "@/components/notifications/ToastProvider";
 
 export const metadata: Metadata = {
   title: "AutoParts ERP | نظام قطع الغيار",
@@ -41,6 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </main>
         )}
         <PWARegister />
+        <ToastProvider>{null}</ToastProvider>
       </body>
     </html>
   );
