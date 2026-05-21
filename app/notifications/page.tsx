@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/components/providers/LanguageProvider";
 import { useNotifications } from "@/components/notifications/useNotifications";
+import { t } from "@/lib/translations";
 
 const typeIcon: Record<string, string> = {
   new_order:       "🛒",
@@ -13,18 +15,6 @@ const typeIcon: Record<string, string> = {
   payment_received:"💰",
   po_received:     "📦",
   system:          "🔔",
-};
-
-const typeLabelAr: Record<string, string> = {
-  new_order:       "طلب جديد",
-  order_delivered: "تم التسليم",
-  order_returned:  "مرتجع",
-  order_cancelled: "ملغي",
-  low_stock:       "مخزون منخفض",
-  out_of_stock:    "نفذ المخزون",
-  payment_received:"دفعة مستلمة",
-  po_received:     "استلام شراء",
-  system:          "النظام",
 };
 
 const typeColor: Record<string, { bg: string; color: string }> = {
@@ -39,14 +29,6 @@ const typeColor: Record<string, { bg: string; color: string }> = {
   system:          { bg: "var(--color-surface-2)", color: "var(--color-ink-muted)" },
 };
 
-const FILTERS = [
-  { value: "all",      label: "الكل" },
-  { value: "unread",   label: "غير مقروء" },
-  { value: "orders",   label: "الطلبات" },
-  { value: "inventory",label: "المخزون" },
-  { value: "payments", label: "الدفعات" },
-];
-
 function matchFilter(type: string, filter: string) {
   if (filter === "all")       return true;
   if (filter === "unread")    return true; // filtered by is_read separately
@@ -56,19 +38,21 @@ function matchFilter(type: string, filter: string) {
   return true;
 }
 
-function timeAgo(date: string) {
+function timeAgo(date: string, language: "ar" | "en") {
   const diff = Date.now() - new Date(date).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1)    return "الآن";
-  if (mins < 60)   return `منذ ${mins} دقيقة`;
+  if (mins < 1)    return language === "ar" ? "الآن" : "Now";
+  if (mins < 60)   return language === "ar" ? `منذ ${mins} دقيقة` : `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
-  if (hrs  < 24)   return `منذ ${hrs} ساعة`;
-  if (hrs  < 168)  return `منذ ${Math.floor(hrs / 24)} يوم`;
-  return new Date(date).toLocaleDateString("ar-SA");
+  if (hrs  < 24)   return language === "ar" ? `منذ ${hrs} ساعة` : `${hrs}h ago`;
+  if (hrs  < 168)  return language === "ar" ? `منذ ${Math.floor(hrs / 24)} يوم` : `${Math.floor(hrs / 24)}d ago`;
+  const locale = language === "ar" ? "ar-SA" : "en-US";
+  return new Date(date).toLocaleDateString(locale);
 }
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const { language } = useLanguage();
   const { notifications, unread, markRead, markAllRead, deleteNotification } = useNotifications();
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -89,12 +73,23 @@ export default function NotificationsPage() {
     const d = new Date(n.created_at);
     const now = new Date();
     let label: string;
-    if (d.toDateString() === now.toDateString()) label = "اليوم";
-    else if (d.toDateString() === new Date(now.getTime() - 86400000).toDateString()) label = "أمس";
-    else label = d.toLocaleDateString("ar-SA", { weekday: "long", month: "long", day: "numeric" });
+    if (d.toDateString() === now.toDateString()) label = language === "ar" ? "اليوم" : "Today";
+    else if (d.toDateString() === new Date(now.getTime() - 86400000).toDateString()) label = language === "ar" ? "أمس" : "Yesterday";
+    else {
+      const locale = language === "ar" ? "ar-SA" : "en-US";
+      label = d.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" });
+    }
     if (!groups[label]) groups[label] = [];
     groups[label].push(n);
   });
+
+  const filterOptions = [
+    { value: "all",       label: t("notif.filter.all", language) },
+    { value: "unread",    label: t("notif.filter.unread", language) },
+    { value: "orders",    label: t("notif.filter.orders", language) },
+    { value: "inventory", label: t("notif.filter.inventory", language) },
+    { value: "payments",  label: t("notif.filter.payments", language) },
+  ];
 
   return (
     <div className="flex-1 p-8" style={{ maxWidth: 800, margin: "0 auto", width: "100%" }}>
@@ -104,10 +99,10 @@ export default function NotificationsPage() {
         <div>
           <h1 className="font-arabic text-2xl font-bold mb-1"
             style={{ color: "var(--color-ink)" }}>
-            الإشعارات
+            {t("notif.title", language)}
           </h1>
           <p className="font-arabic text-sm" style={{ color: "var(--color-ink-muted)" }}>
-            {unread > 0 ? `${unread} إشعار غير مقروء` : "كل الإشعارات مقروءة"}
+            {unread > 0 ? `${unread} ${t("notif.unread_count", language)}` : t("notif.all_read", language)}
           </p>
         </div>
         {unread > 0 && (
@@ -116,7 +111,7 @@ export default function NotificationsPage() {
               stroke="currentColor" strokeWidth={2}>
               <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="font-arabic">تحديد الكل كمقروء</span>
+            <span className="font-arabic">{t("action.mark_all_read", language)}</span>
           </button>
         )}
       </div>
@@ -133,13 +128,13 @@ export default function NotificationsPage() {
           <input
             className="input"
             style={{ paddingRight: 34 }}
-            placeholder="بحث في الإشعارات..."
+            placeholder={t("notif.search_placeholder", language)}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div className="flex gap-1 p-1 rounded-lg" style={{ background: "var(--color-surface)" }}>
-          {FILTERS.map((f) => (
+          {filterOptions.map((f) => (
             <button
               key={f.value}
               className="px-3 py-1.5 rounded-md font-arabic text-xs transition-all"
@@ -167,7 +162,7 @@ export default function NotificationsPage() {
         <div className="card flex flex-col items-center gap-3 py-20">
           <span className="text-5xl opacity-20">🔔</span>
           <p className="font-arabic text-base" style={{ color: "var(--color-ink-muted)" }}>
-            {search || filter !== "all" ? "لا توجد نتائج" : "لا توجد إشعارات"}
+            {search || filter !== "all" ? t("notif.no_results", language) : t("notif.no_notifications", language)}
           </p>
         </div>
       ) : (
@@ -181,6 +176,7 @@ export default function NotificationsPage() {
               <div className="card overflow-hidden">
                 {items.map((n, idx) => {
                   const tc = typeColor[n.type] ?? typeColor.system;
+                  const typeKey = `notif.type.${n.type}` as const;
                   return (
                     <div
                       key={n.id}
@@ -214,7 +210,7 @@ export default function NotificationsPage() {
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <span className="badge text-xs"
                               style={{ background: tc.bg, color: tc.color }}>
-                              {typeLabelAr[n.type] ?? n.type}
+                              {t(typeKey, language)}
                             </span>
                             {!n.is_read && (
                               <div className="w-2 h-2 rounded-full"
@@ -231,12 +227,12 @@ export default function NotificationsPage() {
                         <div className="flex items-center gap-3 mt-2">
                           <span className="font-mono text-xs"
                             style={{ color: "var(--color-ink-faint)" }}>
-                            {timeAgo(n.created_at)}
+                            {timeAgo(n.created_at, language)}
                           </span>
                           {n.link && (
                             <span className="font-arabic text-xs"
                               style={{ color: "var(--color-gold)" }}>
-                              عرض التفاصيل ←
+                              {t("notif.view_details", language)}
                             </span>
                           )}
                         </div>
@@ -248,7 +244,7 @@ export default function NotificationsPage() {
                           <button
                             className="w-7 h-7 rounded flex items-center justify-center"
                             style={{ background: "var(--color-green-bg)", color: "var(--color-green)" }}
-                            title="تحديد كمقروء"
+                            title={t("action.mark_read", language)}
                             onClick={(e) => { e.stopPropagation(); markRead(n.id); }}
                           >
                             <svg width="12" height="12" fill="none" viewBox="0 0 24 24"
@@ -260,7 +256,7 @@ export default function NotificationsPage() {
                         <button
                           className="w-7 h-7 rounded flex items-center justify-center"
                           style={{ background: "var(--color-red-bg)", color: "var(--color-red)" }}
-                          title="حذف"
+                          title={t("action.delete", language)}
                           onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
                         >
                           <svg width="12" height="12" fill="none" viewBox="0 0 24 24"

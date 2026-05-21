@@ -1,7 +1,9 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/components/providers/LanguageProvider";
 import { useNotifications } from "./useNotifications";
+import { t } from "@/lib/translations";
 
 const typeIcon: Record<string, string> = {
   new_order:       "🛒",
@@ -15,18 +17,19 @@ const typeIcon: Record<string, string> = {
   system:          "🔔",
 };
 
-function timeAgo(date: string) {
+function timeAgo(date: string, language: "ar" | "en") {
   const diff = Date.now() - new Date(date).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1)   return "الآن";
-  if (mins < 60)  return `${mins} د`;
+  if (mins < 1)   return language === "ar" ? "الآن" : "Now";
+  if (mins < 60)  return language === "ar" ? `${mins} د` : `${mins}m`;
   const hrs = Math.floor(mins / 60);
-  if (hrs  < 24)  return `${hrs} س`;
-  return `${Math.floor(hrs / 24)} ي`;
+  if (hrs  < 24)  return language === "ar" ? `${hrs} س` : `${hrs}h`;
+  return language === "ar" ? `${Math.floor(hrs / 24)} ي` : `${Math.floor(hrs / 24)}d`;
 }
 
 export function NotificationBell() {
   const router = useRouter();
+  const { language } = useLanguage();
   const { notifications, unread, markRead, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
   const ref  = useRef<HTMLDivElement>(null);
@@ -50,7 +53,7 @@ export function NotificationBell() {
       <button
         onClick={() => setOpen((o) => !o)}
         className="relative flex items-center justify-center rounded-lg transition-all"
-        title="الإشعارات"
+        title={t("notif.title", language)}
         style={{
           width:      36,
           height:     36,
@@ -121,12 +124,12 @@ export function NotificationBell() {
             <div className="flex items-center gap-2">
               <h3 className="font-arabic font-semibold text-sm"
                 style={{ color: "var(--color-ink)" }}>
-                الإشعارات
+                {t("notif.title", language)}
               </h3>
               {unread > 0 && (
                 <span className="badge text-xs"
                   style={{ background: "var(--color-red-bg)", color: "var(--color-red)" }}>
-                  {unread} جديد
+                  {unread} {t("notif.new", language)}
                 </span>
               )}
             </div>
@@ -137,7 +140,7 @@ export function NotificationBell() {
                   style={{ color: "var(--color-gold)" }}
                   onClick={markAllRead}
                 >
-                  قراءة الكل
+                  {t("action.mark_all_read", language)}
                 </button>
               )}
               <button
@@ -145,7 +148,7 @@ export function NotificationBell() {
                 style={{ color: "var(--color-ink-muted)" }}
                 onClick={() => { setOpen(false); router.push("/notifications"); }}
               >
-                عرض الكل
+                {t("action.view_all", language)}
               </button>
             </div>
           </div>
@@ -157,7 +160,7 @@ export function NotificationBell() {
                 <span className="text-3xl opacity-20">🔔</span>
                 <p className="font-arabic text-sm"
                   style={{ color: "var(--color-ink-muted)" }}>
-                  لا توجد إشعارات
+                  {t("notif.no_notifications", language)}
                 </p>
               </div>
             ) : (
@@ -189,7 +192,7 @@ export function NotificationBell() {
                     )}
                     <p className="font-mono text-xs mt-1"
                       style={{ color: "var(--color-ink-faint)" }}>
-                      {timeAgo(n.created_at)}
+                      {timeAgo(n.created_at, language)}
                     </p>
                   </div>
                   {!n.is_read && (
@@ -211,7 +214,7 @@ export function NotificationBell() {
                 style={{ color: "var(--color-gold)" }}
                 onClick={() => { setOpen(false); router.push("/notifications"); }}
               >
-                عرض جميع الإشعارات ({notifications.length})
+                {t("action.view_all", language)} ({notifications.length})
               </button>
             </div>
           )}
